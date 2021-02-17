@@ -5,5 +5,5 @@
 #define LEVEL_HEIGHT  11
 #define LEVEL_TILES   110
 
-#define PLAYFIELD    ((const unsigned char*) 0xC000)
+#define PLAYFIELD    ((unsigned char*) 0xC000)
 
