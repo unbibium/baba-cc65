@@ -300,10 +300,13 @@ void move_obj(unsigned char i, signed char dx) {
 				!(tile_props(ck) & PROPS_STOP_PUSH_OPEN) ) {
 			/* move non-displaced object to background */
 			bg = PLAYFIELD[ck] << 5;
-			printf("\x9ft\005");
+			printf("\x9f a\005");
+		} else if( PLAYFIELD[ck] < 8) {
+			bg = PLAYFIELD[ck] & 224;
+			printf("\x1e b\005");
 		} else {
-			bg = background(PLAYFIELD[ck]);
-			printf("\x1ex\005");
+			bg = PLAYFIELD[ck] & 224;
+			printf("\x1e c\005");
 		}
 		printf("%d+", (bg >> 5));
 		push_delta( ck, PLAYFIELD[ck-dx] | bg );
