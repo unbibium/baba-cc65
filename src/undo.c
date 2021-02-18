@@ -74,7 +74,7 @@ void push_delta(unsigned char pos, unsigned char tile) {
 void apply_deltas(void) {
 	unsigned char incoming_tile;
 	unsigned char current_pos;
-	printf("moving: ud=%d\n", undo_index);
+	printf("applying %d deltas\n", delta_index - undo_index);
 	while (delta_index != undo_index) {
 		incoming_tile = ud_tile[undo_index];
 		if ( background(incoming_tile) == foreground(incoming_tile) ) {

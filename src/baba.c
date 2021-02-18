@@ -23,6 +23,7 @@ void destroy_rule(unsigned char ck, int property);
 void move_YOU_tiles(signed char dx);
 void move_obj(unsigned char, signed char);
 void load_next_level(void);
+void process_rules(void);
 
 void load_next_level(void) {
 	if (++current_level > 5) {
@@ -37,6 +38,7 @@ void play_loop(void) {
 	load_level(current_level);
 	while(!you_win) {
 		compile_rules();
+		process_rules();
 		draw_playfield();
 		/*
 		printf("52: %02x, %02x, %02x, %04x\n",
@@ -115,7 +117,7 @@ signed char get_move(void) {
  * process all the consequences of the current ruleset
  * after the player's last move
  */
-void process_rules() {
+void process_rules(void) {
 	/* 250 u=0:win=0:for ck=0tomx */
 	unsigned char ck, n;
 	unsigned char you_tiles=0; 
@@ -134,7 +136,6 @@ void process_rules() {
 			push_undo(ck);
 			/* 710 n=nand224ortr%(nand7):pf%(ck)=n */
 			PLAYFIELD[ck] = n = (n & 0xE0) | obj_transforms[foreground(n)];
-			
 		}
 		/* 265 ifn>32theniftr%(n/32)theniftr%(n/32)<>int(n/32) then gosub720:rem bg */
 		if(n > 31 && obj_transforms[background(n)]) {
@@ -146,9 +147,11 @@ void process_rules() {
 		}
 		/* 270 r=ru%(nand31)orru%(n/32) */
 		/* interactions */
-		r = obj_properties[foreground(n)] | obj_properties[background(n)];
+		//r = obj_properties[foreground(n)] | obj_properties[background(n)];
+		r = tile_props(ck);
 		/* 275 if(rand48)=48 then np=0:gosub 765:goto295:rem open-shut destroys both */
 		if((r & PROPS_OPEN_SHUT) == PROPS_OPEN_SHUT) {
+			printf("%d open-shut %4x\n", ck, r);
 			push_delta(ck, 0); /* destroys both */
 		/* 280 if(rand64)=64thenif pf%(ck)>32 thennp=0:gosub765:rem sink */
 		} else if ((r & PROP_SINK) && PLAYFIELD[ck] > 32) {
@@ -214,7 +217,6 @@ void process_IS(unsigned char i, unsigned char d) {
 	left_side = foreground(left_side);
 	right_side = foreground(PLAYFIELD[i+d]);
 	if( is_noun(right_side) ) {
-		printf("\005n @ %d+%d ", i, d);
 		noun_is_noun(left_side,right_side);
 	} else if( is_prop(right_side) ) {
 		noun_is_prop(left_side, right_side);
@@ -225,9 +227,9 @@ void noun_is_noun(unsigned char left_side, unsigned char right_side) {
 	print_gr(left_side);
 	if(left_side == right_side) {
 		printf(" is self\n");
+		/* this rule isn't implemented yet */
 		obj_properties[left_side & 7] |= PROP_SELF;
 	} else {
-		printf(" is %d\n", right_side);
 		obj_transforms[left_side & 7] = right_side & 7;
 	}
 }
@@ -276,14 +278,14 @@ void move_obj(unsigned char i, signed char dx) {
 		 */
 		if(ck > LEVEL_TILES || (tile_props(ck) & PROP_STOP)) {
 			/* movement is blocked entirely */
-			printf("\034s\005@ %d.\n", ck);
+			//printf("\034s\005@ %d.\n", ck);
 			return;
 		}
 		if( (tile_props(ck) & PROP_PUSH) || is_text(PLAYFIELD[ck])) {
-			printf("\x9fp\005@ %d, ", ck);
+			//printf("\x9fp\005@ %d, ", ck);
 			ck = ck + dx;
 		} else {
-			printf("[%d]\n", ck);
+			//printf("[%d]\n", ck);
 			break;
 		}
 	} while(1);
@@ -300,15 +302,11 @@ void move_obj(unsigned char i, signed char dx) {
 				!(tile_props(ck) & PROPS_STOP_PUSH_OPEN) ) {
 			/* move non-displaced object to background */
 			bg = PLAYFIELD[ck] << 5;
-			printf("\x9f a\005");
 		} else if( PLAYFIELD[ck] < 8) {
 			bg = PLAYFIELD[ck] & 224;
-			printf("\x1e b\005");
 		} else {
 			bg = PLAYFIELD[ck] & 224;
-			printf("\x1e c\005");
 		}
-		printf("%d+", (bg >> 5));
 		push_delta( ck, foreground(PLAYFIELD[ck-dx]) | bg );
 		if( ck != ds) {
 			ck -= dx;
@@ -316,7 +314,6 @@ void move_obj(unsigned char i, signed char dx) {
 			break;
 		};
 	} while (1);
-	printf("\024   \n");
 
 	/*1090 ck=ck-dx:np=pf%(x)/32:gosub 765:rem restore bg */
 	push_delta(ck-dx, background(PLAYFIELD[i]));
