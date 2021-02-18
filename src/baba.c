@@ -6,11 +6,11 @@
 #include <cbm.h>
 
 extern void __fastcall__ print_gr(unsigned char);
-extern unsigned char current_level;
 
 unsigned int obj_properties[8];
 unsigned char obj_transforms[8];
 
+unsigned char current_level=0;
 unsigned char current_turn=1;
 unsigned char you_win=0;
 
@@ -22,9 +22,19 @@ signed char __fastcall__ get_move(void);
 void destroy_rule(unsigned char ck, int property);
 void move_YOU_tiles(signed char dx);
 void move_obj(unsigned char, signed char);
+void load_next_level(void);
+
+void load_next_level(void) {
+	if (++current_level > 5) {
+		current_level = 0;
+	}
+	load_level(current_level);
+	clear_undo_stack();
+}
 
 void play_loop(void) {
 	signed char baba_move;
+	load_level(current_level);
 	while(!you_win) {
 		compile_rules();
 		draw_playfield();
@@ -44,7 +54,6 @@ void play_loop(void) {
 		baba_move = get_move();
 		if(baba_move) {
 			move_YOU_tiles(baba_move);
-		} else {
 		}
 		apply_deltas();
 		++current_turn;
@@ -68,17 +77,34 @@ signed char get_move(void) {
 			case CH_CURS_RIGHT:
 			case 'd':
 				return 1;
-			case 'z': // wait
+			case ' ': // wait
 				return 0;
 			case 'r':
 				/* TODO: restart */
 				load_level(current_level);
 				/* invalidate all of undo stack */
 				clear_undo_stack();
+				compile_rules();
 				draw_playfield();
-			case 'u':
+				break;
+			case 'z':
 				perform_undo();
+				compile_rules();
 				draw_playfield();
+				break;
+			case 'n':
+				load_next_level();
+				compile_rules();
+				draw_playfield();
+				break;
+			case 'x':
+				init_screen();
+				draw_xray();
+				break;
+			case 'c':
+				init_screen();
+				draw_playfield();
+				break;
 			default:
 				break;
 		}
@@ -221,11 +247,9 @@ void move_YOU_tiles(signed char dx) {
 	if(dx == 0) {
 		return;
 	}
-	printf("searching\n");
 	for(i=0; i<LEVEL_TILES; ++i) {
 		r = tile_props(i);
 		if(r & PROP_YOU) {
-			printf("\034you\005@%d (%02x:%04x)\n", i, PLAYFIELD[i], tile_props(i));
 			move_obj(i, dx);
 		}
 	}
@@ -252,14 +276,14 @@ void move_obj(unsigned char i, signed char dx) {
 		 */
 		if(ck > LEVEL_TILES || (tile_props(ck) & PROP_STOP)) {
 			/* movement is blocked entirely */
-			printf("s@ %d. ", ck);
+			printf("\034s\005@ %d.\n", ck);
 			return;
 		}
 		if( (tile_props(ck) & PROP_PUSH) || is_text(PLAYFIELD[ck])) {
-			printf("p@ %d. ", ck);
+			printf("\x9fp\005@ %d, ", ck);
 			ck = ck + dx;
 		} else {
-			printf("[%d]", ck);
+			printf("[%d]\n", ck);
 			break;
 		}
 	} while(1);
@@ -276,9 +300,12 @@ void move_obj(unsigned char i, signed char dx) {
 				!(tile_props(ck) & PROPS_STOP_PUSH_OPEN) ) {
 			/* move non-displaced object to background */
 			bg = PLAYFIELD[ck] << 5;
+			printf("\x9ft\005");
 		} else {
 			bg = background(PLAYFIELD[ck]);
+			printf("\x1ex\005");
 		}
+		printf("%d+", (bg >> 5));
 		push_delta( ck, PLAYFIELD[ck-dx] | bg );
 		if( ck != ds) {
 			ck -= dx;
@@ -286,6 +313,7 @@ void move_obj(unsigned char i, signed char dx) {
 			break;
 		};
 	} while (1);
+	printf("\024   \n");
 
 	/*1090 ck=ck-dx:np=pf%(x)/32:gosub 765:rem restore bg */
 	push_delta(ck-dx, background(PLAYFIELD[i]));

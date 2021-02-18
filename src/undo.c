@@ -132,5 +132,10 @@ void perform_undo(void) {
 }
 
 void clear_undo_stack(void) {
-	f_undo = current_turn - 1;
+	unsigned char i;
+	current_turn = 1;
+	f_undo = 0;
+	for(i=0;i<MAX_DELTAS;i++) {
+		ud_turn[undo_index] = 0;
+	}
 }
