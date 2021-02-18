@@ -309,7 +309,7 @@ void move_obj(unsigned char i, signed char dx) {
 			printf("\x1e c\005");
 		}
 		printf("%d+", (bg >> 5));
-		push_delta( ck, PLAYFIELD[ck-dx] | bg );
+		push_delta( ck, foreground(PLAYFIELD[ck-dx]) | bg );
 		if( ck != ds) {
 			ck -= dx;
 		} else {
