@@ -1,73 +1,57 @@
 #include "constants.h"
 #include "gfx.h"
+#include "undo.h"
 #include <stdio.h>
 #include <cbm.h>
-
-#define TEXT_YOU   0x10
-#define TEXT_WIN   0x11
-#define TEXT_STOP  0x12
-#define TEXT_PUSH  0x13
-#define TEXT_SHUT  0x14
-#define TEXT_OPEN  0x15
-#define TEXT_SINK  0x16
-#define TEXT_LOSE  0x17
-#define TEXT_HOT   0x18
-#define TEXT_MELT  0x19
-#define TEXT_26    0x1A
-#define TEXT_27    0x1B
-#define TEXT_28    0x1C
-#define TEXT_29    0x1D
-#define TEXT_HAS   0x1E
-#define TEXT_IS    0x1F
-#define PROP_YOU   0x0001
-#define PROP_WIN   0x0002
-#define PROPS_YOU_WIN 0x0003
-#define PROPS_YOU_LOSE 0x0081
-#define PROP_STOP  0x0004
-#define PROP_PUSH  0x0008
-#define PROP_SHUT  0x0010
-#define PROP_OPEN  0x0020
-#define PROPS_OPEN_SHUT  0x0030
-#define PROP_SINK  0x0040
-#define PROP_LOSE  0x0080
-#define PROP_HOT   0x0100
-#define PROP_MELT  0x0200
-#define PROPS_HOT_MELT  0x0300
-#define PROP_26    0x0400
-#define PROP_27    0x0800
-#define PROP_28    0x1000
-#define PROP_29    0x2000
-#define PROP_30    0x4000
-#define PROP_SELF  0x8000 /* set when SAME IS SAME blocks transforms */
-#define is_noun(x) ((x & 0x18) == 0x08)
-#define is_prop(x) ((x & 0x18) == 0x10 && x < 0x1E)
-#define is_obj(x)  ((x & 0x18) == 0)
-
-#define foreground(x) (x & 0x1F)
-#define background(x) ((unsigned char) x >> 5)
 
 extern void __fastcall__ print_gr(unsigned char);
 
 unsigned int obj_properties[8];
 unsigned char obj_transforms[8];
 
-unsigned char you_win;
+unsigned char current_turn;
+unsigned char you_win=0;
 
 void compile_rules(void);
 void process_IS(unsigned char i, unsigned char d);
 void noun_is_noun(unsigned char left_side, unsigned char right_side);
 void noun_is_prop(unsigned char left_side, unsigned char right_side);
-signed char move(void);
+signed char __fastcall__ get_move(void);
 void destroy_rule(unsigned char ck, int property);
-void gosub765(unsigned char ck, unsigned char new_value) ;
+void move_YOU_tiles(signed char dx);
+void move_obj(unsigned char, signed char);
 
 void play_loop(void) {
 	signed char baba_move;
-	compile_rules();
-	baba_move = move();
+	while(!you_win) {
+		compile_rules();
+		draw_playfield();
+		printf("52: %02x, %02x, %02x, %04x\n",
+				PLAYFIELD[52],
+				pf_fg(52),
+				pf_bg(52),
+				tile_props(52) );
+		/*
+		printf("pr:%04x,%04x,%04x,%04x\n",
+				obj_properties[1],
+				obj_properties[2],
+				obj_properties[3],
+				obj_properties[4]);
+				*/
+		printf("turn %d\n", current_turn);
+		baba_move = get_move();
+		if(baba_move) {
+			printf("move %d, ", (signed int) baba_move);
+			move_YOU_tiles(baba_move);
+		} else {
+			printf("no move %d, ", (signed int) baba_move);
+		}
+		apply_deltas();
+		++current_turn;
+	}
 }
 
-signed char move(void) {
+signed char get_move(void) {
 	char f;
 	while(1) {
 		f = cbm_k_getin();
@@ -89,24 +73,14 @@ signed char move(void) {
 }
 
 /*
- *   245 ru%(0)=0
-  255 n=pf%(ck):ifn=0then295
-  260 if(nand24)=0theniftr%(nand7)theniftr%(nand7)<>(nand7) then gosub700:rem fg
-  265 ifn>32theniftr%(n/32)theniftr%(n/32)<>int(n/32) then gosub720:rem bg
-  270 r=ru%(nand31)orru%(n/32)
-  275 if(rand48)=48 then np=0:gosub 765:goto295:rem open-shut destroys both
-  280 if(rand64)=64thenif pf%(ck)>32 thennp=0:gosub765:rem sink
-  285 if(rand768)=768then dr=512:gosub 785:goto295:rem hot/melt
-  286 if(rand129)=129 then dr=1:gosub 785:goto295:rem you/lose
-  290 ifrand1thenu%(u)=ck:u=u+1:ifrand2thenwin=1
-  295 nextck:gosub500:poke 53280,14
-
+ * process all the consequences of the current ruleset
+ * after the player's last move
  */
-void herp() {
+void process_rules() {
 	/* 250 u=0:win=0:for ck=0tomx */
 	unsigned char ck, n;
 	unsigned char you_tiles=0; 
-	int r;
+	unsigned int r;
 	you_win=0;
 	for (ck=0; ck < LEVEL_TILES; ++ck) {
 		/* 255 n=pf%(ck):ifn=0then295 */
@@ -127,10 +101,10 @@ void herp() {
 		r = obj_properties[foreground(n)] | obj_properties[background(n)];
 		/* 275 if(rand48)=48 then np=0:gosub 765:goto295:rem open-shut destroys both */
 		if((r & PROPS_OPEN_SHUT) == PROPS_OPEN_SHUT) {
-			gosub765(ck, 0); /* destroys both */
+			push_delta(ck, 0); /* destroys both */
 		/* 280 if(rand64)=64thenif pf%(ck)>32 thennp=0:gosub765:rem sink */
 		} else if ((r & PROP_SINK) && PLAYFIELD[ck] > 32) {
-			gosub765(ck, 0); /* any object + sink = empty */
+			push_delta(ck, 0); /* any object + sink = empty */
 		/* 285 if(rand768)=768then dr=512:gosub 785:goto295:rem hot/melt */
 		} else if ((r & PROPS_HOT_MELT) == PROPS_HOT_MELT) {
 			destroy_rule(ck, PROP_MELT);
@@ -151,11 +125,6 @@ void herp() {
 	// TODO: poke 53280,14
 }
 
-void gosub765(unsigned char ck, unsigned char new_value) {
-	/* TODO: push to undo stack */
-	PLAYFIELD[ck] = new_value;
-}
-
 /*
  * for destroying
  */
@@ -173,7 +142,6 @@ void destroy_rule(unsigned char ck, int property) {
 
 void compile_rules(void) {
 	unsigned char i;
-	unsigned char max = LEVEL_TILES;
 	/* Clear rules */
 	for (i=0; i < 8; ++i) {
 		obj_properties[i]=0;
@@ -198,6 +166,7 @@ void process_IS(unsigned char i, unsigned char d) {
 	left_side = foreground(left_side);
 	right_side = foreground(PLAYFIELD[i+d]);
 	if( is_noun(right_side) ) {
+		printf("\005n @ %d+%d ", i, d);
 		noun_is_noun(left_side,right_side);
 	} else if( is_prop(right_side) ) {
 		noun_is_prop(left_side, right_side);
@@ -205,14 +174,99 @@ void process_IS(unsigned char i, unsigned char d) {
 }
 
 void noun_is_noun(unsigned char left_side, unsigned char right_side) {
+	print_gr(left_side);
 	if(left_side == right_side) {
+		printf(" is self\n");
 		obj_properties[left_side & 7] |= PROP_SELF;
 	} else {
+		printf(" is %d\n", right_side);
 		obj_transforms[left_side & 7] = right_side & 7;
 	}
 }
 
 void noun_is_prop(unsigned char left_side, unsigned char right_side) {
+	/* printf("rule %d:%04x->", left_side & 7, obj_properties[left_side & 7]); */
 	obj_properties[left_side & 7] |= 1 << (right_side & 0x0F);
+	/* printf("%04x\n",  obj_properties[left_side & 7]); */
 }
 
+/*
+ * attempt to move all YOU tiles in the given direction
+ */
+void move_YOU_tiles(signed char dx) {
+	unsigned char i;
+	unsigned int r;
+	if(dx == 0) {
+		return;
+	}
+	printf("searching\n");
+	for(i=0; i<LEVEL_TILES; ++i) {
+		r = tile_props(i);
+		if(r & PROP_YOU) {
+			printf("\034you\005@%d (%02x:%04x)\n", i, PLAYFIELD[i], tile_props(i));
+			move_obj(i, dx);
+		}
+	}
+}
+
+/*
+ * obj at x wants to move in direction dx
+ */
+void move_obj(unsigned char i, signed char dx) {
+/*
+ 1030 rem obj at x wants to move dx
+ */
+ 	/* 1035 ds=x+dx:ck=ds */
+	unsigned char ds = i+dx;
+	unsigned char ck = ds;
+	unsigned char bg;
+	/* build a train of tiles */
+	do {
+		/*
+		1040 ifck<0orck>mxthenreturn:rem stop at edge
+		1045 iffnpp(ck)and8 then ck=ck+dx:goto 1040:rem push property
+		1050 ifpf%(ck)and24 then ck=ck+dx:goto 1040:rem push text
+		1055 iffnpp(ck)and4then return:rem stop
+		 */
+		if(ck > LEVEL_TILES || (tile_props(ck) & PROP_STOP)) {
+			/* movement is blocked entirely */
+			printf("s@ %d. ", ck);
+			return;
+		}
+		if( (tile_props(ck) & PROP_PUSH) || is_text(PLAYFIELD[ck])) {
+			printf("p@ %d. ", ck);
+			ck = ck + dx;
+		} else {
+			printf("[%d]", ck);
+			break;
+		}
+	} while(1);
+	/* 1060 if(fnpp(ck)and64)=0 then 1065 */
+	/* line 1060 had no effect but checked PROP_SINK */
+	/* move tiles head-first */
+	do {
+		/* 1070 bg=pf%(ck)and224
+		1075 ifpf%(ck)<8thenif(fnpp(ck)and44)=0thenbg=pf%(ck)*32
+		1080 np=(pf%(ck-dx)and31)or bg:gosub765
+		1085 if ck<>ds then ck=ck-dx:goto 1070
+		*/
+		if( PLAYFIELD[ck] < 8 && 
+				!(tile_props(ck) & PROPS_STOP_PUSH_OPEN) ) {
+			/* move non-displaced object to background */
+			bg = PLAYFIELD[ck] << 5;
+		} else {
+			bg = background(PLAYFIELD[ck]);
+		}
+		push_delta( ck, PLAYFIELD[ck-dx] | bg );
+		if( ck != ds) {
+			ck -= dx;
+		} else {
+			break;
+		};
+	} while (1);
+
+	/*1090 ck=ck-dx:np=pf%(x)/32:gosub 765:rem restore bg */
+	push_delta(ck-dx, background(PLAYFIELD[i]));
+
+	/* 1095 return */
+}
