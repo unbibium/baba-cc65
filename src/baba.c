@@ -1,15 +1,17 @@
 #include "constants.h"
 #include "gfx.h"
+#include "levels.h"
 #include "undo.h"
 #include <stdio.h>
 #include <cbm.h>
 
 extern void __fastcall__ print_gr(unsigned char);
+extern unsigned char current_level;
 
 unsigned int obj_properties[8];
 unsigned char obj_transforms[8];
 
-unsigned char current_turn;
+unsigned char current_turn=1;
 unsigned char you_win=0;
 
 void compile_rules(void);
@@ -26,12 +28,12 @@ void play_loop(void) {
 	while(!you_win) {
 		compile_rules();
 		draw_playfield();
+		/*
 		printf("52: %02x, %02x, %02x, %04x\n",
 				PLAYFIELD[52],
 				pf_fg(52),
 				pf_bg(52),
 				tile_props(52) );
-		/*
 		printf("pr:%04x,%04x,%04x,%04x\n",
 				obj_properties[1],
 				obj_properties[2],
@@ -41,10 +43,8 @@ void play_loop(void) {
 		printf("turn %d\n", current_turn);
 		baba_move = get_move();
 		if(baba_move) {
-			printf("move %d, ", (signed int) baba_move);
 			move_YOU_tiles(baba_move);
 		} else {
-			printf("no move %d, ", (signed int) baba_move);
 		}
 		apply_deltas();
 		++current_turn;
@@ -57,16 +57,29 @@ signed char get_move(void) {
 		f = cbm_k_getin();
 		switch(f) {
 			case CH_CURS_UP:
+			case 'w':
 				return -LEVEL_WIDTH;
 			case CH_CURS_DOWN:
+			case 's':
 				return LEVEL_WIDTH;
 			case CH_CURS_LEFT:
+			case 'a':
 				return -1;
 			case CH_CURS_RIGHT:
+			case 'd':
 				return 1;
-			case 'Z': // wait
+			case 'z': // wait
 				return 0;
-			case 'U':
+			case 'r':
+				/* TODO: restart */
+				load_level(current_level);
+				/* invalidate all of undo stack */
+				clear_undo_stack();
+				draw_playfield();
+			case 'u':
+				perform_undo();
+				draw_playfield();
+			default:
 				break;
 		}
 	}
@@ -90,11 +103,20 @@ void process_rules() {
 		}
 		/* 260 if(nand24)=0theniftr%(nand7)theniftr%(nand7)<>(nand7) then gosub700:rem fg */
 		if(is_obj(foreground(n)) && obj_transforms[foreground(n)] ) {
-			/* TODO gosub 700 */
+			/* noun is noun foreground */
+			/* 705 gosub 740 */
+			push_undo(ck);
+			/* 710 n=nand224ortr%(nand7):pf%(ck)=n */
+			PLAYFIELD[ck] = n = (n & 0xE0) | obj_transforms[foreground(n)];
+			
 		}
 		/* 265 ifn>32theniftr%(n/32)theniftr%(n/32)<>int(n/32) then gosub720:rem bg */
 		if(n > 31 && obj_transforms[background(n)]) {
-			/* TODO: gosub 720 */
+			/* noun is noun background */
+			/* 725 gosub 740 */
+			push_undo(ck);
+			/* 730 n=nand31or(tr%(n/32)*32):pf%(ck)=n */
+			PLAYFIELD[ck] = n = (n & 0x1F) | (obj_transforms[background(n)] << 5);
 		}
 		/* 270 r=ru%(nand31)orru%(n/32) */
 		/* interactions */

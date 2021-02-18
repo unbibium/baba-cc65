@@ -8,13 +8,14 @@ unsigned char ud_turn[MAX_DELTAS]; /* ud%(x,2) */
 unsigned char undo_index=0;
 unsigned char delta_index=0;
 unsigned char td=0;   /* not sure */
-unsigned char f_undo=0;  /* BASIC fu variable */
+unsigned char f_undo=0;  /* first invalid undo */
 
 extern unsigned char current_turn;
 
 void push_undo(unsigned char pos);
 void push_delta(unsigned char pos, unsigned char tile) ;
 void apply_deltas(void);
+void perform_undo(void);
 
 /*
   740 rem push to undo stack after delta loop already ran
@@ -72,16 +73,64 @@ void push_delta(unsigned char pos, unsigned char tile) {
  */
 void apply_deltas(void) {
 	unsigned char incoming_tile;
+	unsigned char current_pos;
 	printf("moving: ud=%d\n", undo_index);
 	while (delta_index != undo_index) {
 		incoming_tile = ud_tile[undo_index];
 		if ( background(incoming_tile) == foreground(incoming_tile) ) {
 			incoming_tile = foreground(incoming_tile);
 		}
-		PLAYFIELD[ud_pos[undo_index]] = incoming_tile;
-		printf("%d_%02x ", ud_pos[undo_index], incoming_tile);
+		current_pos = ud_pos[undo_index];
+		/*replace incoming tile with outgoing tile for undo later */
+		ud_tile[undo_index] = PLAYFIELD[current_pos];
+		PLAYFIELD[current_pos] = incoming_tile;
+		printf("%d\x5f%02x ", ud_pos[undo_index], incoming_tile);
 		undo_index = (undo_index + 1) % MAX_DELTAS;
 	}
 	printf("\n");
 	f_undo = ud_turn[undo_index];
+}
+
+/*
+ * 2000 rem "z" for undo
+ 2005 rem@ \fastfor:\fastarray
+*/
+void perform_undo(void) {
+	/* 2010 tu=tu-1:td=0
+	2015 if tu<=fu then tu=fu+1:goto2050 */
+	--current_turn;
+	td=0;
+	if(current_turn <= f_undo) {
+		current_turn = f_undo+1;
+		return;
+	}
+	printf("\x9fundo turn #%d\n", current_turn);
+	while(1) {
+		/* 2020 ud=ud-1:if ud<0 then ud=mu */
+		if (undo_index == 0) {
+			undo_index = MAX_DELTAS-1;
+		} else {
+			--undo_index;
+		}
+		/* 2025 ifud%(ud,2)<>tu then 2040 */
+		if(ud_turn[undo_index] != current_turn) {
+			break;
+		}
+		/* 2030 ud%(ud,2)=fu:pf%(ud%(ud,0))=ud%(ud,1) */
+		ud_turn[undo_index] = f_undo;
+		PLAYFIELD[ud_pos[undo_index]] = ud_tile[undo_index];
+		printf("%02x=%02x ", ud_pos[undo_index], ud_tile[undo_index]);
+		/* 2035 goto 2020 */
+	}
+	printf("\n");
+
+	/* 2040 ud=ud+1:if ud>mu then ud=0 */
+	undo_index = (undo_index + 1) % MAX_DELTAS;
+	/* 2045 dl=ud */
+	delta_index = undo_index;
+	/* 2050 goto 215 */
+}
+
+void clear_undo_stack(void) {
+	f_undo = current_turn - 1;
 }
