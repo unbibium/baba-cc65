@@ -36,10 +36,15 @@ void load_next_level(void) {
 void play_loop(void) {
 	signed char baba_move;
 	load_level(current_level);
-	while(!you_win) {
+	while(1) {
 		compile_rules();
 		process_rules();
+		if(you_win) {
+			load_next_level();
+		}
+		VIC.bordercolor=6;
 		draw_playfield();
+		VIC.bordercolor=14;
 		/*
 		printf("52: %02x, %02x, %02x, %04x\n",
 				PLAYFIELD[52],
@@ -154,7 +159,8 @@ void process_rules(void) {
 			printf("%d open-shut %4x\n", ck, r);
 			push_delta(ck, 0); /* destroys both */
 		/* 280 if(rand64)=64thenif pf%(ck)>32 thennp=0:gosub765:rem sink */
-		} else if ((r & PROP_SINK) && PLAYFIELD[ck] > 32) {
+		} else if ((r & PROP_SINK) && PLAYFIELD[ck] > 31) {
+			printf("%d sink %4x\n", ck, r);
 			push_delta(ck, 0); /* any object + sink = empty */
 		/* 285 if(rand768)=768then dr=512:gosub 785:goto295:rem hot/melt */
 		} else if ((r & PROPS_HOT_MELT) == PROPS_HOT_MELT) {

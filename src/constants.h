@@ -2,8 +2,8 @@
 /* w=10:h=18:mx=h*w-1:sm=49152:is=31 */
 
 #define LEVEL_WIDTH   10
-#define LEVEL_HEIGHT  15
-#define LEVEL_TILES   150
+#define LEVEL_HEIGHT  16
+#define LEVEL_TILES   160
 
 #define PLAYFIELD    ((unsigned char*) 0xC000)
 
