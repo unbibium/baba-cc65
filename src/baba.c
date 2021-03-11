@@ -42,9 +42,7 @@ void play_loop(void) {
 		if(you_win) {
 			load_next_level();
 		}
-		VIC.bordercolor=6;
 		draw_playfield();
-		VIC.bordercolor=14;
 		/*
 		printf("52: %02x, %02x, %02x, %04x\n",
 				PLAYFIELD[52],

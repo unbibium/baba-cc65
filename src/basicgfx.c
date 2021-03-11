@@ -20,6 +20,10 @@ void draw_playfield() {
 	for ( i=0; i < LEVEL_TILES ; ++i) {
 		print_gr(PLAYFIELD[i] & 0x1F);
 	}
+	cbm_k_bsout(0x13); // HOME
+	for (i=0; i<LEVEL_HEIGHT; ++i) {
+		cbm_k_bsout(0x11); // CRSR-DOWN
+	}
 }
 void draw_xray(void) {
 	unsigned char i;
