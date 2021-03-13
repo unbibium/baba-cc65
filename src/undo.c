@@ -12,11 +12,16 @@ unsigned char f_undo=0;  /* first invalid undo */
 
 extern unsigned char current_turn;
 
+void set_with_undo(unsigned char pos, unsigned char tile);
 void push_undo(unsigned char pos);
 void push_delta(unsigned char pos, unsigned char tile) ;
 void apply_deltas(void);
 void perform_undo(void);
 
+void set_with_undo(unsigned char pos, unsigned char tile) {
+	push_undo(pos);
+	PLAYFIELD[pos] = tile;
+}
 /*
   740 rem push to undo stack after delta loop already ran
   745 ud%(ud,0)=ck:ud%(ud,1)=pf%(ck):ud%(ud,2)=tu:td=1

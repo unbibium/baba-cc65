@@ -20,8 +20,8 @@ void noun_is_noun(unsigned char left_side, unsigned char right_side);
 void noun_is_prop(unsigned char left_side, unsigned char right_side);
 signed char __fastcall__ get_move(void);
 void destroy_rule(unsigned char ck, int property);
-void move_YOU_tiles(signed char dx);
-void move_obj(unsigned char, signed char);
+void __fastcall__ move_YOU_tiles(signed char dx);
+void __fastcall__ move_obj(unsigned char, signed char);
 void load_next_level(void);
 void process_rules(void);
 
@@ -36,12 +36,8 @@ void load_next_level(void) {
 void play_loop(void) {
 	signed char baba_move;
 	load_level(current_level);
+	compile_rules();
 	while(1) {
-		compile_rules();
-		process_rules();
-		if(you_win) {
-			load_next_level();
-		}
 		draw_playfield();
 		/*
 		printf("52: %02x, %02x, %02x, %04x\n",
@@ -59,9 +55,16 @@ void play_loop(void) {
 		baba_move = get_move();
 		if(baba_move) {
 			move_YOU_tiles(baba_move);
+			apply_deltas();
 		}
-		apply_deltas();
-		++current_turn;
+		compile_rules();
+		process_rules();
+		if(you_win) {
+			load_next_level();
+		} else {
+			apply_deltas();
+			++current_turn;
+		}
 	}
 }
 
@@ -176,22 +179,18 @@ void process_rules(void) {
 		}
 	}	
 	/* TODO: if no you_tiles then display warning */
-	// TODO: gosub 500
-	// TODO: poke 53280,14
 }
 
 /*
- * for destroying
+ * Given tile located at "ck", destroy whichever object
+ * on that tile has the property of "property".
  */
 void destroy_rule(unsigned char ck, int property) {
-	/* TODO: push to undo stack */
 	unsigned char tile = PLAYFIELD[ck];
 	if(obj_properties[foreground(tile)] & property) {
-		tile = background(tile);
-		PLAYFIELD[ck] = tile;
+		set_with_undo(ck, background(tile));
 	} else if(obj_properties[background(tile)] & property) {
-		tile = foreground(tile);
-		PLAYFIELD[ck] = tile;
+		set_with_undo(ck, foreground(tile));
 	} 
 }
 
