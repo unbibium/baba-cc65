@@ -117,24 +117,22 @@ void process_rules(void) {
 	unsigned int r;
 	you_win=0;
 	for (ck=0; ck < LEVEL_TILES; ++ck) {
-		/* 255 n=pf%(ck):ifn=0then295 */
-		n=PLAYFIELD[ck];
+		n = PLAYFIELD[ck];
+		r = tile_props(ck);
 		if(n == 0) {
 			continue;
 		}
-		if(is_obj(foreground(n)) && obj_transforms[foreground(n)] ) {
+		if(is_obj(foreground(n)) && obj_transforms[foreground(n)] && !(obj_properties[foreground(n)] & PROP_SELF) ) {
 			/* noun is noun foreground */
 			push_undo(ck);
 			PLAYFIELD[ck] = n = (n & 0xE0) | obj_transforms[foreground(n)];
 		}
-		/* 265 ifn>32theniftr%(n/32)theniftr%(n/32)<>int(n/32) then gosub720:rem bg */
-		if(n > 31 && obj_transforms[background(n)]) {
+		if(n > 31 && obj_transforms[background(n)] && !(obj_properties[background(n)] & PROP_SELF) ) {
 			/* noun is noun background */
 			push_undo(ck);
 			PLAYFIELD[ck] = n = (n & 0x1F) | (obj_transforms[background(n)] << 5);
 		}
 		/* interactions */
-		r = tile_props(ck);
 		if((r & PROPS_OPEN_SHUT) == PROPS_OPEN_SHUT) {
 			printf("%d open-shut %4x\n", ck, r);
 			push_delta(ck, 0); /* destroys both */
@@ -186,6 +184,9 @@ void compile_rules(void) {
 	}
 }
 
+/*
+ * Process "A is B" rule.
+ */
 void process_IS(unsigned char i, unsigned char d) {
 	unsigned char left_side = PLAYFIELD[i-d];
 	unsigned char right_side;
@@ -196,18 +197,23 @@ void process_IS(unsigned char i, unsigned char d) {
 	right_side = foreground(PLAYFIELD[i+d]);
 	if( is_noun(right_side) ) {
 		noun_is_noun(left_side,right_side);
+		// TODO: figure out how to show conflicting rules on-screen
 	} else if( is_prop(right_side) ) {
 		noun_is_prop(left_side, right_side);
 	}
 }
 
+/*
+ * Add a transform rule to the ruleset.
+ * left_side and right_side are both word tiles
+ */
 void noun_is_noun(unsigned char left_side, unsigned char right_side) {
 	print_gr(left_side);
 	if(left_side == right_side) {
-		printf(" is self\n");
-		/* this rule isn't implemented yet */
+		/* A is A rule cancels any A is B rule */
 		obj_properties[left_side & 7] |= PROP_SELF;
 	} else {
+		/* A is B rule */
 		obj_transforms[left_side & 7] = right_side & 7;
 	}
 }
