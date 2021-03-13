@@ -7,8 +7,10 @@
 .PSC02
 
 .EXPORT _print_gr
+.EXPORT _draw_tile_at
 
-CHROUT = $FFD2
+; CHROUT = $FFD2
+PLOT = $FFF0
 
 ; assumes C64 kernal
 ROWSTART = 209
@@ -18,6 +20,25 @@ COLROWSTART = 251
 
 COLOR_RAM = 55296
 
+; a = tile value
+; x = tile location
+_draw_tile_at:
+	PHA
+	; quick divide by 10
+	LDY #0
+dta0:
+	CMP #10
+	BCC dta1
+	INY
+	SBC #10
+	JMP dta0
+dta1:   
+	LSR
+	LSR
+	TAX
+	CLC ; set cursor location
+	JSR PLOT
+	PLA
 ; this routine will print a baba tile
 ; at the current kernal cursor position
 

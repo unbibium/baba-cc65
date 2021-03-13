@@ -51,7 +51,7 @@
 #define PROP_27    0x0800
 #define PROP_28    0x1000
 #define PROP_29    0x2000
-#define PROP_30    0x4000
+#define PROP_30    0x4000 /* will probably be HAS */
 /* Property bit that would otherwise go unused because of IS block */
 #define PROP_SELF  0x8000 /* TODO: set when SAME IS SAME blocks transforms */
 
