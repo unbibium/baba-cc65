@@ -39,18 +39,6 @@ void play_loop(void) {
 	compile_rules();
 	while(1) {
 		draw_playfield();
-		/*
-		printf("52: %02x, %02x, %02x, %04x\n",
-				PLAYFIELD[52],
-				pf_fg(52),
-				pf_bg(52),
-				tile_props(52) );
-		printf("pr:%04x,%04x,%04x,%04x\n",
-				obj_properties[1],
-				obj_properties[2],
-				obj_properties[3],
-				obj_properties[4]);
-				*/
 		printf("turn %d\n", current_turn);
 		baba_move = get_move();
 		if(baba_move) {
@@ -124,7 +112,6 @@ signed char get_move(void) {
  * after the player's last move
  */
 void process_rules(void) {
-	/* 250 u=0:win=0:for ck=0tomx */
 	unsigned char ck, n;
 	unsigned char you_tiles=0; 
 	unsigned int r;
@@ -135,41 +122,29 @@ void process_rules(void) {
 		if(n == 0) {
 			continue;
 		}
-		/* 260 if(nand24)=0theniftr%(nand7)theniftr%(nand7)<>(nand7) then gosub700:rem fg */
 		if(is_obj(foreground(n)) && obj_transforms[foreground(n)] ) {
 			/* noun is noun foreground */
-			/* 705 gosub 740 */
 			push_undo(ck);
-			/* 710 n=nand224ortr%(nand7):pf%(ck)=n */
 			PLAYFIELD[ck] = n = (n & 0xE0) | obj_transforms[foreground(n)];
 		}
 		/* 265 ifn>32theniftr%(n/32)theniftr%(n/32)<>int(n/32) then gosub720:rem bg */
 		if(n > 31 && obj_transforms[background(n)]) {
 			/* noun is noun background */
-			/* 725 gosub 740 */
 			push_undo(ck);
-			/* 730 n=nand31or(tr%(n/32)*32):pf%(ck)=n */
 			PLAYFIELD[ck] = n = (n & 0x1F) | (obj_transforms[background(n)] << 5);
 		}
-		/* 270 r=ru%(nand31)orru%(n/32) */
 		/* interactions */
-		//r = obj_properties[foreground(n)] | obj_properties[background(n)];
 		r = tile_props(ck);
-		/* 275 if(rand48)=48 then np=0:gosub 765:goto295:rem open-shut destroys both */
 		if((r & PROPS_OPEN_SHUT) == PROPS_OPEN_SHUT) {
 			printf("%d open-shut %4x\n", ck, r);
 			push_delta(ck, 0); /* destroys both */
-		/* 280 if(rand64)=64thenif pf%(ck)>32 thennp=0:gosub765:rem sink */
 		} else if ((r & PROP_SINK) && PLAYFIELD[ck] > 31) {
 			printf("%d sink %4x\n", ck, r);
 			push_delta(ck, 0); /* any object + sink = empty */
-		/* 285 if(rand768)=768then dr=512:gosub 785:goto295:rem hot/melt */
 		} else if ((r & PROPS_HOT_MELT) == PROPS_HOT_MELT) {
 			destroy_rule(ck, PROP_MELT);
-		/* 286 if(rand129)=129 then dr=1:gosub 785:goto295:rem you/lose */
 		} else if ((r & PROPS_YOU_LOSE) == PROPS_YOU_LOSE) {
 			destroy_rule(ck, PROP_YOU);
-		/* 290 ifrand1thenu%(u)=ck:u=u+1:ifrand2thenwin=1 */
 		} else if (r & PROP_YOU) {
 			++you_tiles;
 			// TODO: add to "you" tile list?
@@ -238,9 +213,7 @@ void noun_is_noun(unsigned char left_side, unsigned char right_side) {
 }
 
 void noun_is_prop(unsigned char left_side, unsigned char right_side) {
-	/* printf("rule %d:%04x->", left_side & 7, obj_properties[left_side & 7]); */
 	obj_properties[left_side & 7] |= 1 << (right_side & 0x0F);
-	/* printf("%04x\n",  obj_properties[left_side & 7]); */
 }
 
 /*
@@ -273,22 +246,13 @@ void move_obj(unsigned char i, signed char dx) {
 	unsigned char bg;
 	/* build a train of tiles */
 	do {
-		/*
-		1040 ifck<0orck>mxthenreturn:rem stop at edge
-		1045 iffnpp(ck)and8 then ck=ck+dx:goto 1040:rem push property
-		1050 ifpf%(ck)and24 then ck=ck+dx:goto 1040:rem push text
-		1055 iffnpp(ck)and4then return:rem stop
-		 */
 		if(ck > LEVEL_TILES || (tile_props(ck) & PROP_STOP)) {
 			/* movement is blocked entirely */
-			//printf("\034s\005@ %d.\n", ck);
 			return;
 		}
 		if( (tile_props(ck) & PROP_PUSH) || is_text(PLAYFIELD[ck])) {
-			//printf("\x9fp\005@ %d, ", ck);
 			ck = ck + dx;
 		} else {
-			//printf("[%d]\n", ck);
 			break;
 		}
 	} while(1);
@@ -296,11 +260,6 @@ void move_obj(unsigned char i, signed char dx) {
 	/* line 1060 had no effect but checked PROP_SINK */
 	/* move tiles head-first */
 	do {
-		/* 1070 bg=pf%(ck)and224
-		1075 ifpf%(ck)<8thenif(fnpp(ck)and44)=0thenbg=pf%(ck)*32
-		1080 np=(pf%(ck-dx)and31)or bg:gosub765
-		1085 if ck<>ds then ck=ck-dx:goto 1070
-		*/
 		if( PLAYFIELD[ck] < 8 && 
 				!(tile_props(ck) & PROPS_STOP_PUSH_OPEN) ) {
 			/* move non-displaced object to background */
@@ -318,8 +277,6 @@ void move_obj(unsigned char i, signed char dx) {
 		};
 	} while (1);
 
-	/*1090 ck=ck-dx:np=pf%(x)/32:gosub 765:rem restore bg */
 	push_delta(ck-dx, background(PLAYFIELD[i]));
 
-	/* 1095 return */
 }
