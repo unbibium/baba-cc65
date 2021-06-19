@@ -63,14 +63,22 @@ _print_gr:
 	INX
 	INY
 .ENDREPEAT
+	TYA
+	CLC
+	ADC #38
+	TAY
 .REPEAT 2
-	LDA GFXSCREEN+40,X
+	LDA GFXSCREEN,x
 	STA (ROWSTART),Y
-	LDA GFXCOLOR+40,X
+	LDA GFXCOLOR,X
 	STA (COLROWSTART),Y
 	INX
 	INY
 .ENDREPEAT
+	TYA
+	SEC
+	SBC #40
+	TAY
 	CPY #32
 	BCC DONT_ADVANCE
 	TYA
@@ -96,8 +104,8 @@ GFXSCREEN:
 	.BYTE 46 , 46 , 46 , 46
 	.BYTE 46 , 90 , 90 , 46
 	.BYTE 108 , 247 , 247 , 123
-	.BYTE 242 , 241 , 242 , 241
-	.BYTE 32 , 78 , 120 , 32
+	.BYTE 242 , 241 , 241 , 242
+	.BYTE 32 , 248 , 78 , 32
 	.BYTE 47 , 47 , 47 , 47
 	.BYTE 32 , 87 , 114 , 32
 	.BYTE 207 , 160 , 173 , 208
@@ -105,7 +113,7 @@ GFXSCREEN:
 	.BYTE 2 , 1 , 2 , 1
 	.BYTE 18 , 15 , 3 , 11
 	.BYTE 23 , 1 , 12 , 12
-	.BYTE 6 , 12 , 1 , 7
+	.BYTE 6 , 12 , 1 , 7    ;"FLAG"
 	.BYTE 23 , 1 , 20 , 18
 	.BYTE 11 , 5 , 25 , 32
 	.BYTE 4 , 15 , 15 , 18
@@ -124,10 +132,11 @@ GFXSCREEN:
 	.BYTE 160 , 178 , 184 , 160
 	.BYTE 160 , 178 , 185 , 160
 	.BYTE 8 , 1 , 19 , 32
-	.BYTE 32 , 9 , 19 , 32
+       ; IS in crude graphics
+	.BYTE 46, 85, 66, 75
 
 .macro NOUN_COLOR
-	.BYTE 1,1,1,1 ; all white
+	.BYTE 13,13,13,13 ; bright green
 .endmacro
 .macro PROP_COLOR
 	.BYTE 3,3,3,3 ;all cyan

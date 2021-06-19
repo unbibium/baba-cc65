@@ -4,7 +4,6 @@
 #include "constants.h"
 #include <peekpoke.h>
 #include <cbm.h>
-#include <stdio.h>
 
 extern void __fastcall__ print_gr(unsigned char);
 
