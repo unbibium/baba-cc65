@@ -102,14 +102,14 @@ DONT_ADVANCE:
 
 GFXSCREEN:
 	.BYTE 46 , 46 , 46 , 46
-	.BYTE 46 , 90 , 90 , 46
-	.BYTE 108 , 247 , 247 , 123
-	.BYTE 242 , 241 , 241 , 242
-	.BYTE 32 , 248 , 78 , 32
-	.BYTE 47 , 47 , 47 , 47
-	.BYTE 32 , 87 , 114 , 32
-	.BYTE 207 , 160 , 173 , 208
-	.BYTE 32 , 160 , 184 , 32
+	.BYTE $79, $68, $E1, $FB  ;baba
+	.BYTE $CF, $7B, $7C, $FA ;rock
+	.BYTE 242 , 241 , 241 , 242 ;wall
+	.BYTE 32 , 248 , 78 , 32  ; flag
+	.BYTE 47 , 47 , 47 , 47   ; water
+	.BYTE $6C, $6F, $7C, $22   ; key
+	.BYTE 207 , 208, $A0 , $FE  ; door
+	.BYTE 32 , 160 , 184 , 32  ; unused "8" for now
 	.BYTE 2 , 1 , 2 , 1
 	.BYTE 18 , 15 , 3 , 11
 	.BYTE 23 , 1 , 12 , 12
